@@ -4,6 +4,7 @@
 does not provide monitor equivalent"""
 
 
+from collections import namedtuple
 import itertools as it
 
 import requests
@@ -14,12 +15,41 @@ MONITOR_URL = '/api/coprs/{user}/{project}/monitor'
 BUILD_TASK_URL = '/api_2/build_tasks'
 
 
+# Results wrapper
+BuildResult = namedtuple('BuildResult', ['build_id', 'chroot', 'url'])
+BuildResult.__doc__ += ': Container for COPR build result info.'
+# For 3.5+
+#BuildResult.build_id.__doc__ = 'Build id.'
+#BuildResult.chroot.__doc__ = 'Chroot in which the build was made.'
+#BuildResult.url.__doc__ = 'Absolute URL of the resulting artifacts.'
+
+# Possible API contact errors
+ConnectionError = requests.ConnectionError
+
+HTTPError = requests.HTTPError
+
 class ProjectNotFoundError(RuntimeError):
-    """Indicate that the project was not found by the COPR web."""
+    """Indicate that a project was not found on the COPR web."""
+
+class BuildNotFoundError(RuntimeError):
+    """Indicate that a build was not found on the COPR web."""
 
 
 def monitor(user: str, project: str) -> dict:
-    """Fetch monitor for the specified project."""
+    """Get monitor for the specified user/project.
+
+    Arguments:
+        user -- The owner of the project.
+        project -- The name of the project.
+
+    Returns:
+        Current project status in dictionary (JSON) format.
+
+    Raises:
+        ConnectionError -- On unreachable network.
+        ProjectNotFoundError -- When specified project cannot be found in COPR.
+        HTTPError -- On general server errors.
+    """
 
     rsp = requests.get(''.join([COPR_ROOT, MONITOR_URL.format(
             user=user, project=project)]))
@@ -31,8 +61,40 @@ def monitor(user: str, project: str) -> dict:
         raise ProjectNotFoundError(data['error'])
 
 
-def builds(user: str, project: str) -> None:
-    """Generate build URLs for the specified project."""
+def build(build_id: int) -> dict:
+    """Get build information for build with the specified id.
+
+    Arguments:
+        build_id -- The numeric ID of the build.
+
+    Returns:
+        Build information with embedded build tasks in dictionary (JSON) format.
+        See https://copr-rest-api.readthedocs.org/en/latest/Resources/build.html#get-build-details
+
+    Raises:
+        ConnectionError -- On unreachable network.
+        BuildNotFoundError -- When specified build cannot be found in COPR.
+        HTTPError -- On general server errors.
+    """
+
+    raise NotImplementedError()
+
+
+def current_builds(user: str, project: str): # Generator[BuildResult, None, None]
+    """Generate BuildResults for all current builds in project.
+
+    Arguments:
+        user -- The owner of the project.
+        project -- The name of the project.
+
+    Yields:
+        BuildResult for each current build and chroot.
+
+    Raises:
+        ConnectionError -- On unreachable network.
+        ProjectNotFoundError -- When specified project cannot be found in COPR.
+        HTTPError -- On general server errors.
+    """
 
     # Fetch and parse monitor
     packages = monitor(user, project)['packages']
