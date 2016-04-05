@@ -1,0 +1,8 @@
+# GH Travis CI configuration
+language: python
+python:
+  - "3.4"
+# Install dependencies
+install: "pip install -r requirements.txt"
+# Run tests
+script: "python -m pytest"
