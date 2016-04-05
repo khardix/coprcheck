@@ -8,6 +8,8 @@ various tests on provided [COPR][copr] repository.
 This project is work in progress, in alpha/development stage. The user should
 not assume that any feature or functionality is final.
 
+Travis CI status: [![Build Status](https://travis-ci.org/khardix/coprcheck.svg?branch=master)](https://travis-ci.org/khardix/coprcheck)
+
 ## Collaboration and testing
 
 If you want to contribute, please submit a pull request. Please provide tests
