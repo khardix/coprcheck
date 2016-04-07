@@ -73,10 +73,11 @@ def mock_monitor(monkeypatch):
 def mock_build(monkeypatch):
     """Prepared project build."""
 
-    data = {'build_tasks': [ {'tasks': {
+    data = {'build_tasks': [ {'build_task': {
                 'result_dir_url': EXPECTED_BUILD_RESULT.url,
                 'chroot_name': EXPECTED_BUILD_RESULT.chroot,
                 'build_id': EXPECTED_BUILD_RESULT.build_id,
+                'state': 'succeeded',
            } } ] }
 
     def build(build_id):

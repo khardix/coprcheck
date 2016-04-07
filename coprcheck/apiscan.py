@@ -12,7 +12,7 @@ import requests
 
 COPR_ROOT = 'https://copr.fedorainfracloud.org'
 MONITOR_URL = '/api/coprs/{user}/{project}/monitor'
-BUILD_URL = '/api_2/build/{build_id:d}'
+BUILD_URL = '/api_2/builds/{build_id:d}'
 
 
 # Results wrapper
@@ -33,6 +33,15 @@ class ProjectNotFoundError(RuntimeError):
 
 class BuildNotFoundError(RuntimeError):
     """Indicate that a build was not found on the COPR web."""
+
+
+def _unique(iterable):
+    """Generate unique elements, preserving order."""
+
+    seen = set()
+    for element in it.filterfalse(seen.__contains__, iterable):
+        seen.add(element)
+        yield element
 
 
 def monitor(user: str, project: str) -> dict:
@@ -85,7 +94,7 @@ def build(build_id: int) -> dict:
     if rsp.status_code == requests.codes.ok:
         return rsp.json()
     elif rsp.status_code == requests.codes.not_found:
-        raise BuildNotFoundError(rsp.json()['message'])
+        raise BuildNotFoundError('Build #{} not found'.format(build_id))
     else:
         rsp.raise_for_status()
 
@@ -106,16 +115,22 @@ def current_builds(user: str, project: str): # Generator[BuildResult, None, None
         HTTPError -- On general server errors.
     """
 
-    # Fetch and parse monitor
+    # List of mappings of SRPMS to results
     packages = monitor(user, project)['packages']
-    # link all builds from all packages into one iterable
-    builds = it.chain.from_iterable(p['results'].values() for p in packages)
-    uniq_ids = {b['build_id'] for b in builds
-                              if b is not None and b['status'] == 'succeeded'}
+    # Long list of all current builds on all arches
+    pkg_builds = it.chain.from_iterable(
+            pkg['results'].values() for pkg in packages)
+    # Unique build ids across all arches and builds
+    build_ids = _unique(pb['build_id'] for pb in pkg_builds
+            if pb is not None and pb['status'] == 'succeeded')
 
-    # Fetch URLs for all builds
-    responses = (requests.get(COPR_ROOT+BUILD_TASK_URL, params={'build_id': uid})
-                 for uid in uniq_ids)
-    tasks = it.chain.from_iterable(r.json()['build_tasks'] for r in responses)
-    yield from (task['build_task']['result_dir_url']
-                for task in tasks if task['build_task']['state'] == 'succeeded')
+    # List of all build tasks associated with any build ids
+    build_tasks = it.chain.from_iterable(
+            build(b_id)['build_tasks'] for b_id in build_ids)
+    tasks = (bt['build_task'] for bt in build_tasks if bt is not None)
+
+    # Final build informations
+    yield from (BuildResult(url=t['result_dir_url'],
+                            chroot=t['chroot_name'],
+                            build_id=t['build_id'])
+                for t in tasks if t is not None and t['state'] == 'succeeded')
