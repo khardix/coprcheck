@@ -8,6 +8,8 @@ from urllib.parse import urlparse
 
 import tqdm
 
+from .apiscan import BuildResult
+
 
 def _wget_dir(remote_dir: str, local_root: str,
               accept: [str] = ['rpm', 'log.gz']) -> None:
@@ -42,6 +44,8 @@ def _wget_dir(remote_dir: str, local_root: str,
     subprocess.check_call(cmd)
 
 
-#@asyncio.coroutine
-def fetch_build(url: str, local_root: str) -> None:
-    return _wget_dir(url, local_root)
+def fetch_build(build: BuildResult, prefix: str = '.') -> None:
+    local_root = path.join(prefix, build.chroot)
+    local_root = path.normpath(local_root)
+
+    return _wget_dir(build.url, local_root)

@@ -25,9 +25,6 @@ parser.add_argument('project', type=copr_project,
 
 args = parser.parse_args()
 
-res = []
-for url in tqdm.tqdm(list(apiscan.builds(*args.project))):
-    #fetch_build(url, args.target)
-    res.append(url)
-
-print(*res, sep='\n')
+builds = list(apiscan.current_builds(*args.project))
+for build in tqdm.tqdm(builds):
+    fetch_build(build, args.target)
