@@ -39,7 +39,7 @@ for_builds = make_param_decorators(MOCK_BUILDS)
 
 EXPECTED_BUILD_RESULT = ascn.BuildResult(
         build_id=42,
-        chroot='fedora-rawhide-x86_64',
+        chroot=ascn.Chroot.from_chroot_name('fedora-rawhide-x86_64'),
         url='http://localhost/results')
 
 # ### Fixtures ###
@@ -75,7 +75,7 @@ def mock_build(monkeypatch):
 
     data = {'build_tasks': [ {'build_task': {
                 'result_dir_url': EXPECTED_BUILD_RESULT.url,
-                'chroot_name': EXPECTED_BUILD_RESULT.chroot,
+                'chroot_name': str(EXPECTED_BUILD_RESULT.chroot),
                 'build_id': EXPECTED_BUILD_RESULT.build_id,
                 'state': 'succeeded',
            } } ] }

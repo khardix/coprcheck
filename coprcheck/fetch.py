@@ -45,7 +45,7 @@ def _wget_dir(remote_dir: str, local_root: str,
 
 
 def fetch_build(build: BuildResult, prefix: str = '.') -> None:
-    local_root = path.join(prefix, build.chroot)
+    local_root = path.join(prefix, build.chroot.distribution)
     local_root = path.normpath(local_root)
 
     return _wget_dir(build.url, local_root)

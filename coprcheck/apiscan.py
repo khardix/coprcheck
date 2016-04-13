@@ -6,6 +6,7 @@ does not provide monitor equivalent"""
 
 from collections import namedtuple
 import itertools as it
+import re
 
 import requests
 
@@ -14,6 +15,30 @@ COPR_ROOT = 'https://copr.fedorainfracloud.org'
 MONITOR_URL = '/api/coprs/{user}/{project}/monitor'
 BUILD_URL = '/api_2/builds/{build_id:d}'
 
+
+# Chroot wrapper
+class Chroot(namedtuple('Chroot', ['distro', 'version', 'arch'])):
+    """Build chroot information."""
+
+    CHROOT_RE = re.compile('^(?P<distro>.+)-(?P<version>[^-]+)-(?P<arch>[^-]+)$')
+
+    @classmethod
+    def from_chroot_name(cls, name: str):
+        """Parse chroot name."""
+
+        m = re.match(cls.CHROOT_RE, name)
+        if m is None: raise ValueError('Invalid chroot: ' + name)
+
+        return cls(**m.groupdict())
+
+    @property
+    def distribution(self):
+        """Full distribution name."""
+        return '-'.join([self.distro, self.version])
+
+    def __str__(self):
+        """Full chroot name."""
+        return '-'.join([self.distro, self.version, self.arch])
 
 # Results wrapper
 BuildResult = namedtuple('BuildResult', ['build_id', 'chroot', 'url'])
@@ -131,6 +156,6 @@ def current_builds(user: str, project: str): # Generator[BuildResult, None, None
 
     # Final build informations
     yield from (BuildResult(url=t['result_dir_url'],
-                            chroot=t['chroot_name'],
+                            chroot=Chroot.from_chroot_name(t['chroot_name']),
                             build_id=t['build_id'])
                 for t in tasks if t is not None and t['state'] == 'succeeded')
