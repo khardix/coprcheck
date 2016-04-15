@@ -2,53 +2,11 @@
 
 
 from contextlib import contextmanager
-from distutils.spawn import find_executable
-from functools import wraps
-import fnmatch
 import os
 from shutil import rmtree
 from subprocess import check_call
 
-
-class MissingBinaryError(OSError):
-    """The binary required for this check is not present in the $PATH."""
-
-
-def require_bin(*binaries: [str]):
-    """Decorator which checks for binaries on a system before calling
-    the decorated function.
-
-    Arguments:
-        [binary, ...]: Names of binaries to look for.
-    """
-    def decorator(func):
-
-        @wraps(func)
-        def check_binaries(*args, **kwargs):
-
-            for binary in binaries:
-                exe = find_executable(binary)
-                if exe is None: raise MissingBinaryError(binary)
-
-            return func(*args, **kwargs)
-
-        return check_binaries
-    return decorator
-
-
-def rpm_dirs(root: str):
-    """Generate paths to all directories under root that contains any RPM file.
-
-    Keyword arguments:
-        root: The top of the searched tree
-
-    Yields:
-        Paths from root (included) to the directory with RPM(s).
-    """
-
-    for root, _, flist in os.walk(root):
-        if len(fnmatch.filter(flist, '*.rpm')) > 0:
-            yield root
+from . _utils import MissingBinaryError, require_bin, rpm_dirs
 
 
 @require_bin('rpmgrill', 'rpmgrill-unpack-rpms')

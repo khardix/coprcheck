@@ -1,10 +1,14 @@
 import argparse
+from functools import partial
 from os.path import expanduser
+from sys import stderr
+from subprocess import CalledProcessError
 
 import tqdm
 
 from . import apiscan
 from .fetch import fetch_build
+from .checks import rpmgrill
 
 
 def copr_project(full_project: str):
@@ -14,6 +18,9 @@ def copr_project(full_project: str):
         msg = 'Invalid project: {}'.format(full_project)
         raise argparse.ArgumentTypeError(msg)
     return tuple(parts)
+
+
+logprint = partial(print, file=stderr, flush=True)
 
 
 parser = argparse.ArgumentParser(prog='coprcheck',
@@ -28,3 +35,10 @@ args = parser.parse_args()
 builds = list(apiscan.current_builds(*args.project))
 for build in tqdm.tqdm(builds):
     fetch_build(build, args.target)
+logprint('[CHECK] Running rpmgrill…', end='\t')
+try:
+    rpmgrill(args.target)
+except CalledProcessError as cmdfail:
+    logprint('[FAIL]: {0}'.format(cmdfail.output))
+else:
+    logprint('[DONE]')

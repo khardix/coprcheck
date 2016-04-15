@@ -1,14 +1,11 @@
 """Download requested COPR builds."""
 
 
-import asyncio
 from os import path
 import subprocess
 from urllib.parse import urlparse
 
-import tqdm
-
-from .apiscan import BuildResult
+from . _data_def import BuildResult
 
 
 def _wget_dir(remote_dir: str, local_root: str,

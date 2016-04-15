@@ -4,49 +4,18 @@
 does not provide monitor equivalent"""
 
 
-from collections import namedtuple
 import itertools as it
-import re
 
 import requests
+
+from . _data_def import Chroot, BuildResult
+from . _utils import unique
 
 
 COPR_ROOT = 'https://copr.fedorainfracloud.org'
 MONITOR_URL = '/api/coprs/{user}/{project}/monitor'
 BUILD_URL = '/api_2/builds/{build_id:d}'
 
-
-# Chroot wrapper
-class Chroot(namedtuple('Chroot', ['distro', 'version', 'arch'])):
-    """Build chroot information."""
-
-    CHROOT_RE = re.compile('^(?P<distro>.+)-(?P<version>[^-]+)-(?P<arch>[^-]+)$')
-
-    @classmethod
-    def from_chroot_name(cls, name: str):
-        """Parse chroot name."""
-
-        m = re.match(cls.CHROOT_RE, name)
-        if m is None: raise ValueError('Invalid chroot: ' + name)
-
-        return cls(**m.groupdict())
-
-    @property
-    def distribution(self):
-        """Full distribution name."""
-        return '-'.join([self.distro, self.version])
-
-    def __str__(self):
-        """Full chroot name."""
-        return '-'.join([self.distro, self.version, self.arch])
-
-# Results wrapper
-BuildResult = namedtuple('BuildResult', ['build_id', 'chroot', 'url'])
-BuildResult.__doc__ += ': Container for COPR build result info.'
-# For 3.5+
-#BuildResult.build_id.__doc__ = 'Build id.'
-#BuildResult.chroot.__doc__ = 'Chroot in which the build was made.'
-#BuildResult.url.__doc__ = 'Absolute URL of the resulting artifacts.'
 
 # Possible API contact errors
 ConnectionError = requests.exceptions.ConnectionError
@@ -58,15 +27,6 @@ class ProjectNotFoundError(RuntimeError):
 
 class BuildNotFoundError(RuntimeError):
     """Indicate that a build was not found on the COPR web."""
-
-
-def _unique(iterable):
-    """Generate unique elements, preserving order."""
-
-    seen = set()
-    for element in it.filterfalse(seen.__contains__, iterable):
-        seen.add(element)
-        yield element
 
 
 def monitor(user: str, project: str) -> dict:
@@ -146,7 +106,7 @@ def current_builds(user: str, project: str): # Generator[BuildResult, None, None
     pkg_builds = it.chain.from_iterable(
             pkg['results'].values() for pkg in packages)
     # Unique build ids across all arches and builds
-    build_ids = _unique(pb['build_id'] for pb in pkg_builds
+    build_ids = unique(pb['build_id'] for pb in pkg_builds
             if pb is not None and pb['status'] == 'succeeded')
 
     # List of all build tasks associated with any build ids
