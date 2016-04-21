@@ -1,3 +1,4 @@
+blessings==1.6
 chardet==2.3.0
 cookies==2.2.1
 fancycompleter==0.4
