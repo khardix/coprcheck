@@ -5,7 +5,7 @@ from contextlib import contextmanager
 import json
 import os
 from shutil import rmtree
-from subprocess import check_call
+from subprocess import check_call, DEVNULL
 
 from .. _utils import require_bin, rpm_dirs
 
@@ -77,7 +77,7 @@ def scan(project_root: str) -> dict:
 
         with unpacked(directory) as grillroot:
             cmd = ['rpmgrill', grillroot]
-            check_call(cmd)
+            check_call(cmd, stderr=DEVNULL)
 
             with open(os.path.join(grillroot, 'rpmgrill.json')) as res:
                 grill_stats = json.load(res)
