@@ -1,6 +1,7 @@
 import argparse
 from functools import partial
 from os.path import expanduser
+from pprint import pprint
 from sys import stderr
 from subprocess import CalledProcessError
 
@@ -32,13 +33,23 @@ parser.add_argument('project', type=copr_project,
 
 args = parser.parse_args()
 
-builds = list(apiscan.current_builds(*args.project))
-for build in tqdm.tqdm(builds):
-    fetch_build(build, args.target)
+#builds = list(apiscan.current_builds(*args.project))
+#for build in tqdm.tqdm(builds):
+    #fetch_build(build, args.target)
 logprint('[CHECK] Running rpmgrill…', end='\t')
+grill_stats = None
 try:
-    rpmgrill(args.target)
+    grill_stats = rpmgrill.scan(args.target)
 except CalledProcessError as cmdfail:
     logprint('[FAIL]: {0}'.format(cmdfail.output))
 else:
     logprint('[DONE]')
+
+if grill_stats:
+    print("Failed packages:")
+    for pkg, checks in grill_stats.items():
+        print('\t{}:'.format(pkg))
+        for check, details in checks.items():
+            print('\t\t{}:'.format(check))
+            for code, diag in details.items():
+                print('\t\t\t{}: {}'.format(code, diag))
