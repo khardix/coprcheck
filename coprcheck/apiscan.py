@@ -9,7 +9,7 @@ import itertools as it
 import requests
 
 from . _data_def import Chroot, BuildResult
-from . _utils import unique
+from . _utils.generic import unique
 
 
 COPR_ROOT = 'https://copr.fedorainfracloud.org'

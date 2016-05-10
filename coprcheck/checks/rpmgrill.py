@@ -7,7 +7,7 @@ import os
 from shutil import rmtree
 from subprocess import check_call, DEVNULL
 
-from .. _utils import require_bin, rpm_dirs
+from .. _utils.generic import require_bin, rpm_dirs
 
 
 @require_bin('rpmgrill-unpack-rpms')

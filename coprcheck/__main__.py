@@ -1,112 +1,92 @@
-"""Main CLI interface of the coprcheck package."""
+"""Coprcheck -- automated tests on COPR projects
+
+Usage:
+    {prog} [options] PROJECT
+
+Positional arguments:
+    PROJECT             The COPR project to check, in the format of <user>/<project>
+
+Options:
+    -t, --target=TARGET Directory to store the downloaded packages [default: <user>-<project>]
+    -q, --quiet         Silences progress reporting to console
+    -r, --report=REPORT Specify the file to output to [default: <user>-<project>.yml]
+
+Phases options:
+    --no-download       Do not download the package, use existing contents of TARGET
+    --no-checks         Do not run checks on the TARGET
+"""
 
 
-import argparse
-from contextlib import contextmanager
-from functools import partial
-from os.path import expanduser
 import sys
-from subprocess import CalledProcessError
 
-from blessings import Terminal
-import tqdm
+import docopt
+import yaml
+from tqdm import tqdm
 
+from . _utils.output import *
 from . apiscan import current_builds
 from . fetch import fetch_build
 from . checks import rpmgrill
 
 
-term = Terminal()
+def valid_copr_project(name: str) -> (str, str):
+    """Validate COPR project name, as user/project.
 
-print_progress = partial(print, file=sys.stderr, flush=True)
+    Raises:
+        ValueError if the project name is not valid.
+    """
 
-def copr_project(full_project: str):
-    """Validate and parse COPR project name."""
-
-    parts = full_project.split('/')
+    parts = name.split('/')
     if len(parts) != 2:
-        msg = 'Invalid project: {}'.format(full_project)
-        raise argparse.ArgumentTypeError(msg)
-    return tuple(parts)
-
-@contextmanager
-def running_task(name: str):
-    """Report that the task is running and if it was successfull."""
-
-    print_progress('Running {}...'.format(name), end='')
-    try:
-        yield
-    except Exception:
-        print_progress('[{}]'.format(term.bold_red('FAIL')))
-        raise
+        msg = 'Invalid project: {}'.format(name)
+        raise ValueError(msg)
     else:
-        print_progress('[{}]'.format(term.green('DONE')))
+        return tuple(parts)
 
 
-argparser = argparse.ArgumentParser(
-        description='Check COPR repository for package quality',
-        )
-argparser.add_argument('project',
-        metavar='USER/PROJECT',
-        type=copr_project,
-        help='Full project name',
-        )
-argparser.add_argument('-t', '--target',
-        help='Directory in which the downloaded packages will be stored. '
-            +'Defaults to $PWD/USER-PROJECT.',
-        )
+params = docopt.docopt(__doc__.format(prog=__package__))
 
-outputs = argparser.add_mutually_exclusive_group()
-outputs.add_argument('-q', '--quiet',
-        dest='report_progress',
-        action='store_false',
-        help='Silences progess output to console.',
-        )
-outputs.add_argument('--no-logs',
-        dest='write_logs',
-        action='store_false',
-        help='Do not write progress report.',
-        )
+# Validate project
+try:
+    user, project = valid_copr_project(params['PROJECT'])
+except ValueError as err:
+    raise SystemExit(str(err)) from None
 
-phases = argparser.add_mutually_exclusive_group()
-phases.add_argument('--no-download',
-        dest='download',
-        action='store_false',
-        help='Do not download packages, use the contents of the target.'
-        )
-phases.add_argument('--no-checks',
-        dest='check',
-        action='store_false',
-        help='Do not run checks on downloaded packages.'
-        )
+# Construct defaults
+if params['--target'] is None:
+    params['--target'] = '-'.join((user, project))
+if params['--report'] is None:
+    params['--report'] = ''.join((user, '-', project, '.yml'))
 
+if not params['--no-download']:
+    builds = list(current_builds(user, project))
 
-parameters = argparser.parse_args()
-if parameters.target is None:
-    parameters.target = '-'.join(parameters.project)
+    if not params['--quiet']:
+        builds = tqdm(builds)
 
-if parameters.download:
-    builds = list(current_builds(*parameters.project))
-    if parameters.report_progress:
-        builds = tqdm.tqdm(builds)
     for url in builds:
-        fetch_build(url, parameters.target)
+        fetch_build(url, params['--target'])
 
-if parameters.check:
-    checks_results = dict()
+if not params['--no-checks']:
+    full_results = dict()
 
     try:
         with running_task('rpmgrill'):
-            checks_results['rpmgrill'] = rpmgrill.scan(parameters.target)
-    except CalledProcessError as exc:
-        raise SystemExit(0xFF)
+            result = rpmgrill.scan(params['--target'])
+            for pkg, checks in result.items():
+                pkg = full_results.setdefault(pkg, dict())
+                checks = {
+                    check: [': '.join(it) for it in state.items()]
+                    for check, state in checks.items()
+                }
 
-    if parameters.report_progress:
+                pkg['rpmgrill'] = checks
+    finally:
+        pass
 
-        print('Failed packages:')
-        for package, results in checks_results['rpmgrill'].items():
-            print('\t{}:'.format(term.bold_white(package)))
-            for check, state in results.items():
-                print('\t\t{}:'.format(term.yellow(check)))
-                for code, diag in state.items():
-                    print('\t\t\t{}: {}'.format(code, diag))
+    if not params['--quiet']:
+        report_failed(full_results)
+
+    # print report
+    with open(params['--report'], 'w') as report:
+        print(yaml.dump(full_results, default_flow_style=False), file=report)
